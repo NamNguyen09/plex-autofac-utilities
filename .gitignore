@@ -5,3 +5,5 @@
 /.vs
 /Plex.DbContext.Helper/bin
 /Plex.DbContext.Helper/obj
+/Plex.Autofac.Helper/bin
+Plex.Autofac.Helper/obj
