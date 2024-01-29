@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>8.0.0</Version>
+    <Version>8.0.1</Version>
     <Authors>Tom Lee</Authors>
     <PackageProjectUrl>https://github.com/NamNguyen09/plex-autofac-utilities</PackageProjectUrl>
     <Copyright>TomLee@2024</Copyright>
@@ -12,6 +12,7 @@
     <PackageTags>Autofac</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes>Fix dynamic metadata name</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
