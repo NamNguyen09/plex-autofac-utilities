@@ -1,6 +1,6 @@
 ﻿using Autofac.Features.Metadata;
 
-namespace Plex.DbContext.Helper;
+namespace Plex.Autofac.Helper;
 
 public static class MetaDataExtensions
 {

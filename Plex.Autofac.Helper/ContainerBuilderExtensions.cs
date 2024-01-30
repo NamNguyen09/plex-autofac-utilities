@@ -4,7 +4,7 @@ namespace Plex.Autofac.Helper;
 
 public static class ContainerBuilderExtensions
 {
-    public static ContainerBuilder RegisterAssemblyWithMetaData<TMetaData, TIService>(this ContainerBuilder containerBuilder)
+    public static ContainerBuilder RegisterAssemblyWithMetaData<TMetaData, TIService>(this ContainerBuilder containerBuilder, string metaName)
                                                                 where TMetaData : class
                                                                 where TIService : class
     {
@@ -15,7 +15,7 @@ public static class ContainerBuilderExtensions
                                                                && t.ConstructorArguments.First().Value != null)
                             select t.ConstructorArguments.First().Value).FirstOrDefault();
             if (name == null) continue;
-            containerBuilder.RegisterType(item).As<TIService>().WithMetadata(nameof(TMetaData), name);
+            containerBuilder.RegisterType(item).As<TIService>().WithMetadata(metaName, name);
         }
 
         return containerBuilder;
