@@ -10,6 +10,7 @@ namespace Plex.DbContext.Helper;
 
 public static class ComponentContextExtensions
 {
+    const string AppNameKey = "cx-application-name";
     public static TContext RegisterDbContext<TContext>(
               this IComponentContext c,
               string connectionString,
@@ -38,13 +39,13 @@ public static class ComponentContextExtensions
 
         return (TContext)(Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration) ?? new());
     }
-    public static string GetConnectionString(this IConfigurationManager configuration,
-                                            IDictionary<string, StringValues> httpRequestHeaders)
+    public static string GetDynamicConnectionString(this IConfigurationManager configuration,
+                                                    IDictionary<string, StringValues>? httpRequestHeaders)
     {
         StringBuilder connectionNameBuilder = new StringBuilder().Append(configuration["ConnectionStringKey"] ?? "ConnectionString");
-        if (httpRequestHeaders != null)
+        if (httpRequestHeaders != null && httpRequestHeaders.TryGetValue(AppNameKey, out StringValues value))
         {
-            string? appName = httpRequestHeaders["cx-application-name"];
+            string? appName = value;
             if (!string.IsNullOrWhiteSpace(appName)) connectionNameBuilder.Append($"-{appName.ToLower()}");
         }
 
