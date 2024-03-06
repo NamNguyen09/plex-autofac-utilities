@@ -4,13 +4,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>8.0.2</Version>
+    <Version>8.0.3</Version>
     <Authors>Tom Lee</Authors>
     <PackageProjectUrl>https://github.com/NamNguyen09/plex-autofac-utilities</PackageProjectUrl>
     <RepositoryUrl>https://github.com/NamNguyen09/plex-autofac-utilities</RepositoryUrl>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Remove MetaDataExtensions</PackageReleaseNotes>
+    <PackageReleaseNotes>Add method to get connection string</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,7 +1,10 @@
 ﻿using System.Reflection;
+using System.Text;
 using Autofac;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Primitives;
 
 namespace Plex.DbContext.Helper;
 
@@ -34,6 +37,18 @@ public static class ComponentContextExtensions
         }
 
         return (TContext)(Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration) ?? new());
+    }
+    public static string GetConnectionString(this IConfigurationManager configuration,
+                                            IDictionary<string, StringValues> httpRequestHeaders)
+    {
+        StringBuilder connectionNameBuilder = new StringBuilder().Append(configuration["ConnectionStringKey"] ?? "ConnectionString");
+        if (httpRequestHeaders != null)
+        {
+            string? appName = httpRequestHeaders["cx-application-name"];
+            if (!string.IsNullOrWhiteSpace(appName)) connectionNameBuilder.Append($"-{appName.ToLower()}");
+        }
+
+        return $"{configuration[connectionNameBuilder.ToString()]};TrustServerCertificate=True" ?? "";
     }
     static DbContextOptionsBuilder<TContext> GetDbContextOptions<TContext>(IComponentContext c,
                                                                         string connectionString,
