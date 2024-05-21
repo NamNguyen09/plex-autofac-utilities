@@ -7,10 +7,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Primitives;
 
 namespace Plex.DbContext.Helper;
-
 public static class ComponentContextExtensions
 {
-    const string AppNameKey = "cx-application-name";
+    const string DbNameKey = "cx-db";
     public static TContext RegisterDbContext<TContext>(
               this IComponentContext c,
               string connectionString,
@@ -43,7 +42,7 @@ public static class ComponentContextExtensions
                                                     IDictionary<string, StringValues>? httpRequestHeaders)
     {
         StringBuilder connectionNameBuilder = new StringBuilder().Append(configuration["ConnectionStringKey"] ?? "ConnectionString");
-        if (httpRequestHeaders != null && httpRequestHeaders.TryGetValue(AppNameKey, out StringValues value))
+        if (httpRequestHeaders != null && httpRequestHeaders.TryGetValue(DbNameKey, out StringValues value))
         {
             string? appName = value;
             if (!string.IsNullOrWhiteSpace(appName)) connectionNameBuilder.Append($"-{appName.ToLower()}");

@@ -1,16 +1,16 @@
-﻿using Autofac;
+﻿using System.Reflection;
+using Autofac;
 
 namespace Plex.Autofac.Helper;
-
 public static class ContainerBuilderExtensions
 {
-    public static ContainerBuilder RegisterAssemblyWithMetaData<IService>(this ContainerBuilder containerBuilder,
-                                                                Type[] assemblyTypes,
-                                                                string metaName)
-                                                                where IService : class
+    public static ContainerBuilder RegisterFromAssemblyTypesWithMetaData<IService>(this ContainerBuilder containerBuilder,
+                                                                                    Assembly[] assemblies,
+                                                                                    string metaName)
+                                                                                    where IService : class
     {
-        var types = assemblyTypes.Where(t => typeof(IService)
-                         .IsAssignableFrom(t) && !t.IsInterface).ToList();
+        var types = assemblies.SelectMany(s => s.GetTypes()).Where(t => typeof(IService).IsAssignableFrom(t)
+                                                                        && !t.IsInterface).ToArray();
         foreach (Type? item in types)
         {
             if (item == null) continue;
@@ -26,6 +26,20 @@ public static class ContainerBuilderExtensions
             containerBuilder.RegisterType(item).As<IService>()
                             .WithMetadata(metaName, functionName)
                             .InstancePerLifetimeScope();
+        }
+
+        return containerBuilder;
+    }
+    public static ContainerBuilder RegisterFromAssemblyTypes<IService>(this ContainerBuilder containerBuilder,
+                                                               Assembly[] assemblies)
+                                                               where IService : class
+    {
+        var types = assemblies.SelectMany(s => s.GetTypes()).Where(t => typeof(IService).IsAssignableFrom(t)
+                                                                        && !t.IsInterface).ToArray();
+        foreach (Type? item in types)
+        {
+            if (item == null) continue;
+            containerBuilder.RegisterType(item).As<IService>().InstancePerLifetimeScope();
         }
 
         return containerBuilder;
