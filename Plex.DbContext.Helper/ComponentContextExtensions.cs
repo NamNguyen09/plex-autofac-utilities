@@ -6,17 +6,16 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace Plex.DbContext.Helper;
 public static class ComponentContextExtensions
 {
-    public static IComponentContext RegisterDbContext<TContext>(this IComponentContext c,
+    public static TContext RegisterDbContext<TContext>(this IComponentContext c,
               WebApplicationBuilder builder)
               where TContext : Microsoft.EntityFrameworkCore.DbContext
     {
         bool enableMigration = Convert.ToBoolean(builder.Configuration["EnableMigration"] ?? "false");
         var optBuilder = GetDbContextOptions<TContext>(c, builder, enableMigration);
-        Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration);
-        return c;
+        return (TContext)(Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration) ?? new());
     }
 
-    public static IComponentContext RegisterDbContextWithEfCoreCache<TContext, TCacheInterceptor>(
+    public static TContext RegisterDbContextWithEfCoreCache<TContext, TCacheInterceptor>(
                   this IComponentContext c,
                   WebApplicationBuilder builder)
                   where TContext : Microsoft.EntityFrameworkCore.DbContext
@@ -31,9 +30,7 @@ public static class ComponentContextExtensions
             optBuilder.AddInterceptors(efCoreCacheInterceptor);
         }
 
-        Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration);
-
-        return c;
+        return (TContext)(Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration) ?? new());
     }
     static DbContextOptionsBuilder<TContext> GetDbContextOptions<TContext>(IComponentContext c,
                                                                         WebApplicationBuilder builder,

@@ -4,13 +4,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>8.0.6</Version>
+    <Version>8.0.7</Version>
     <Authors>Tom Lee</Authors>
     <PackageProjectUrl>https://github.com/NamNguyen09/plex-autofac-utilities</PackageProjectUrl>
     <RepositoryUrl>https://github.com/NamNguyen09/plex-autofac-utilities</RepositoryUrl>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Add extensions to register DbContext using Microsoft dependency injection</PackageReleaseNotes>
+    <PackageReleaseNotes>Update extensions to register DbContext using Autofac</PackageReleaseNotes>
 	<NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
 	<!-- Let's generate our own assembly info -->
 	<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
