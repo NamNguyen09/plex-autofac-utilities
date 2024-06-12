@@ -1,63 +1,54 @@
 ﻿using System.Reflection;
-using System.Text;
 using Autofac;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Primitives;
 
 namespace Plex.DbContext.Helper;
 public static class ComponentContextExtensions
 {
-    const string DbNameKey = "cx-db";
-    public static TContext RegisterDbContext<TContext>(
-              this IComponentContext c,
-              string connectionString,
-              bool useLazyLoading = false,
-              bool enableMigration = false)
+    public static IComponentContext RegisterDbContext<TContext>(this IComponentContext c,
+              WebApplicationBuilder builder)
               where TContext : Microsoft.EntityFrameworkCore.DbContext
     {
-        var optBuilder = GetDbContextOptions<TContext>(c, connectionString, useLazyLoading);
-        return (TContext)(Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration) ?? new());
+        bool enableMigration = Convert.ToBoolean(builder.Configuration["EnableMigration"] ?? "false");
+        var optBuilder = GetDbContextOptions<TContext>(c, builder, enableMigration);
+        Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration);
+        return c;
     }
 
-    public static TContext RegisterDbContextWithEfCoreCache<TContext, TCacheInterceptor>(
+    public static IComponentContext RegisterDbContextWithEfCoreCache<TContext, TCacheInterceptor>(
                   this IComponentContext c,
-                  string connectionString,
-                  bool useLazyLoading = false,
-                  bool enableMigration = false)
+                  WebApplicationBuilder builder)
                   where TContext : Microsoft.EntityFrameworkCore.DbContext
                   where TCacheInterceptor : DbCommandInterceptor
     {
-        var optBuilder = GetDbContextOptions<TContext>(c, connectionString, useLazyLoading, enableMigration);
+        bool enableMigration = Convert.ToBoolean(builder.Configuration["EnableMigration"] ?? "false");
+
+        var optBuilder = GetDbContextOptions<TContext>(c, builder, enableMigration);
         if (c.IsRegistered(typeof(TCacheInterceptor)))
         {
             var efCoreCacheInterceptor = c.Resolve<TCacheInterceptor>();
             optBuilder.AddInterceptors(efCoreCacheInterceptor);
         }
 
-        return (TContext)(Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration) ?? new());
-    }
-    public static string GetDynamicConnectionString(this IConfigurationManager configuration,
-                                                    IDictionary<string, StringValues>? httpRequestHeaders)
-    {
-        StringBuilder connectionNameBuilder = new StringBuilder().Append(configuration["ConnectionStringKey"] ?? "ConnectionString");
-        if (httpRequestHeaders != null && httpRequestHeaders.TryGetValue(DbNameKey, out StringValues value))
-        {
-            string? appName = value;
-            if (!string.IsNullOrWhiteSpace(appName)) connectionNameBuilder.Append($"-{appName.ToLower()}");
-        }
+        Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration);
 
-        return $"{configuration[connectionNameBuilder.ToString()]};TrustServerCertificate=True" ?? "";
+        return c;
     }
     static DbContextOptionsBuilder<TContext> GetDbContextOptions<TContext>(IComponentContext c,
-                                                                        string connectionString,
-                                                                        bool useLazyLoading = false,
-                                                                        bool enableMigration = false)
+                                                                        WebApplicationBuilder builder,
+                                                                        bool enableMigration)
                                                                         where TContext : Microsoft.EntityFrameworkCore.DbContext
     {
+        bool useLazyLoading = Convert.ToBoolean(builder.Configuration["UseLazyLoading"] ?? "false");
+        bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration["UseChangeTrackingProxies"] ?? "false");
+
         var dbContextOptBuilder = new DbContextOptionsBuilder<TContext>();
         dbContextOptBuilder.UseLazyLoadingProxies(useLazyLoading);
+        dbContextOptBuilder.UseChangeTrackingProxies(useChangeTrackingProxies);
+
+        var context = c.Resolve<IHttpContextAccessor>();
+        string connectionString = builder.Configuration.GetDynamicConnectionString(context?.HttpContext?.Request.Headers);
 
         string provider = "mssql";
         if (connectionString.Contains("server") || connectionString.Contains("host")) provider = "postgresql";
