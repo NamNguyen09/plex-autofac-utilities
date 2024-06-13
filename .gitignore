@@ -3,7 +3,7 @@
 ################################################################################
 
 /.vs
-/Plex.DbContext.Helper/bin
-/Plex.DbContext.Helper/obj
+/Plex.Extensions.DbContext/bin
+/Plex.Extensions.DbContext/obj
 /Plex.Autofac.Helper/bin
-Plex.Autofac.Helper/obj
+/Plex.Autofac.Helper/obj
