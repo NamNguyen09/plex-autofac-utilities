@@ -17,7 +17,7 @@ public static class ConfigurationExtensions
 
         return $"{configuration[connectionNameBuilder.ToString()]};TrustServerCertificate=True" ?? "";
     }
-    public static string GetAppSettingValue(this IConfiguration? configuration, string key,
+    public static string GetAppSettingValue(this IConfigurationManager? configuration, string key,
                                             string settingName = "AppSetting",
                                             string defaultValue = "")
     {
@@ -45,7 +45,7 @@ public static class ConfigurationExtensions
             return value;
         }
 
-        value = configuration.GetValue<string>(settingKey) ?? defaultValue;
+        value = configuration.GetValue<string>(settingKey);
         if (!string.IsNullOrWhiteSpace(value))
         {
             value = Environment.ExpandEnvironmentVariables(value);

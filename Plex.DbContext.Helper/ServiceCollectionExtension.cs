@@ -10,10 +10,12 @@ public static class ServiceCollectionExtension
     {
         builder.Services.AddDbContextPool<TDbContext>((sp, options) =>
         {
-            bool useLazyLoading = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseLazyLoading", defaultValue: "false"));
-            bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseChangeTrackingProxies", defaultValue: "false"));
+            bool useLazyLoading = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EfUseLazyLoading", defaultValue: "false"));
+            bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EfUseChangeTrackingProxies", defaultValue: "false"));
             options.UseLazyLoadingProxies(useLazyLoading);
             options.UseChangeTrackingProxies(useChangeTrackingProxies);
+            bool useQueryTrackingBehavior = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EfUseQueryTrackingBehavior", defaultValue: "true"));
+            if (!useQueryTrackingBehavior) options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
             options.UseDbProvider<TDbContext>(sp, builder);
         });
 
@@ -28,17 +30,20 @@ public static class ServiceCollectionExtension
         {
             var efCoreCacheInterceptor = sp.GetService<TCacheInterceptor>();
             if (efCoreCacheInterceptor != null) options.AddInterceptors(efCoreCacheInterceptor);
-            bool useLazyLoading = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseLazyLoading", defaultValue: "false"));
-            bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseChangeTrackingProxies", defaultValue: "false"));
+            bool useLazyLoading = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EfUseLazyLoading", defaultValue: "false"));
+            bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EfUseChangeTrackingProxies", defaultValue: "false"));
             options.UseLazyLoadingProxies(useLazyLoading);
             options.UseChangeTrackingProxies(useChangeTrackingProxies);
+            bool useQueryTrackingBehavior = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EfUseQueryTrackingBehavior", defaultValue: "true"));
+            if (!useQueryTrackingBehavior) options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
             options.UseDbProvider<TDbContext>(sp, builder);
         });
 
         return builder;
     }
-    static DbContextOptionsBuilder UseDbProvider<TDbContext>(this DbContextOptionsBuilder options,
-        IServiceProvider sp, WebApplicationBuilder builder) where TDbContext : Microsoft.EntityFrameworkCore.DbContext
+    static DbContextOptionsBuilder UseDbProvider<TDbContext>(this DbContextOptionsBuilder dbContextOptBuilder,
+                                                            IServiceProvider sp, WebApplicationBuilder builder)
+                                                            where TDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
         var context = sp.GetService<IHttpContextAccessor>();
         string connectionString = builder.Configuration.GetDynamicConnectionString(context?.HttpContext?.Request.Headers);
@@ -46,7 +51,7 @@ public static class ServiceCollectionExtension
         string provider = "mssql";
         if (connectionString.Contains("server") || connectionString.Contains("host")) provider = "postgresql";
 
-        bool enableMigration = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EnableMigration", defaultValue: "false"));
+        bool enableMigration = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EfEnableMigration", defaultValue: "false"));
         string? migrationsAssembly = null;
         if (enableMigration)
         {
@@ -54,28 +59,28 @@ public static class ServiceCollectionExtension
             migrationsAssembly = assembly == null || assembly.GetName() == null ? "" : assembly.GetName().Name;
         }
 
+        int commandTimeOut = Convert.ToInt32(builder.Configuration.GetAppSettingValue("EfSqlCommandTimeOutInSecond", defaultValue: "300"));
+        int maxRetryCount = Convert.ToInt32(builder.Configuration.GetAppSettingValue("EfSqlMaxRetryOnFailureCount", defaultValue: "0"));
         switch (provider)
         {
             case "postgresql":
-                if (!enableMigration)
-                {
-                    options.UseNpgsql(connectionString);
-                    break;
-                }
-
-                options.UseNpgsql(connectionString, p => p.MigrationsAssembly(migrationsAssembly));
+                dbContextOptBuilder.UseNpgsql(connectionString, options =>
+                   {
+                       options.CommandTimeout(commandTimeOut);
+                       if (!string.IsNullOrWhiteSpace(migrationsAssembly)) options.MigrationsAssembly(migrationsAssembly);
+                       if (maxRetryCount > 0) options.EnableRetryOnFailure(maxRetryCount);
+                   });
                 break;
             default:
-                if (!enableMigration)
+                dbContextOptBuilder.UseSqlServer(connectionString, options =>
                 {
-                    options.UseSqlServer(connectionString);
-                    break;
-                }
-
-                options.UseSqlServer(connectionString, sql => sql.MigrationsAssembly(migrationsAssembly));
+                    options.CommandTimeout(commandTimeOut);
+                    if (!string.IsNullOrWhiteSpace(migrationsAssembly)) options.MigrationsAssembly(migrationsAssembly);
+                    if (maxRetryCount > 0) options.EnableRetryOnFailure(maxRetryCount);
+                });
                 break;
         }
 
-        return options;
+        return dbContextOptBuilder;
     }
 }

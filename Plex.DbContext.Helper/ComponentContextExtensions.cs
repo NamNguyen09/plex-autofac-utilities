@@ -7,49 +7,64 @@ namespace Plex.DbContext.Helper;
 public static class ComponentContextExtensions
 {
     public static TDbContext RegisterDbContext<TDbContext>(this IComponentContext c,
-              WebApplicationBuilder builder)
-              where TDbContext : Microsoft.EntityFrameworkCore.DbContext
+                                                          WebApplicationBuilder builder)
+                                                          where TDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
-        bool enableMigration = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EnableMigration", defaultValue: "false"));
-        var optBuilder = GetDbContextOptions<TDbContext>(c, builder, enableMigration);
-        return (TDbContext)(Activator.CreateInstance(typeof(TDbContext), optBuilder.Options, enableMigration) ?? new());
+        var optBuilder = GetDbContextOptions<TDbContext>(c, builder);
+        return (TDbContext)(Activator.CreateInstance(typeof(TDbContext), optBuilder.Options) ?? new());
     }
 
-    public static TDbContext RegisterDbContextWithEfCoreCache<TDbContext, TCacheInterceptor>(
-                  this IComponentContext c,
-                  WebApplicationBuilder builder)
-                  where TDbContext : Microsoft.EntityFrameworkCore.DbContext
-                  where TCacheInterceptor : DbCommandInterceptor
+    public static TDbContext RegisterDbContextWithCache<TDbContext, TCacheInterceptor>(
+                                                              this IComponentContext c,
+                                                              WebApplicationBuilder builder)
+                                                              where TDbContext : Microsoft.EntityFrameworkCore.DbContext
+                                                              where TCacheInterceptor : DbCommandInterceptor
     {
-        bool enableMigration = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EnableMigration", defaultValue: "false"));
-
-        var optBuilder = GetDbContextOptions<TDbContext>(c, builder, enableMigration);
+        var optBuilder = GetDbContextOptions<TDbContext>(c, builder);
         if (c.IsRegistered(typeof(TCacheInterceptor)))
         {
             var efCoreCacheInterceptor = c.Resolve<TCacheInterceptor>();
             optBuilder.AddInterceptors(efCoreCacheInterceptor);
         }
 
-        return (TDbContext)(Activator.CreateInstance(typeof(TDbContext), optBuilder.Options, enableMigration) ?? new());
+        return (TDbContext)(Activator.CreateInstance(typeof(TDbContext), optBuilder.Options) ?? new());
+    }
+    public static ContainerBuilder RegisterSqlConnectionFactory<ISqlConnection, TSqlConnection>(this ContainerBuilder containerBuilder,
+                                                                                IConfigurationManager configuration)
+                                                                                where TSqlConnection : class
+                                                                                where ISqlConnection : class
+    {
+        containerBuilder.Register(c =>
+        {
+            var context = c.Resolve<IHttpContextAccessor>();
+            string connectionString = configuration.GetDynamicConnectionString(context?.HttpContext?.Request.Headers);
+            int commandTimeOut = Convert.ToInt32(configuration.GetAppSettingValue("EfSqlCommandTimeOutInSecond", defaultValue: "300"));
+            if (!connectionString.Contains("Command Timeout", StringComparison.InvariantCultureIgnoreCase))
+            {
+                connectionString += $";Command Timeout = {commandTimeOut}";
+            }
+            return (TSqlConnection)(Activator.CreateInstance(typeof(TSqlConnection), connectionString) ?? new());
+        }).As<ISqlConnection>().InstancePerLifetimeScope();
+
+        return containerBuilder;
     }
     static DbContextOptionsBuilder<TDbContext> GetDbContextOptions<TDbContext>(IComponentContext c,
-                                                                        WebApplicationBuilder builder,
-                                                                        bool enableMigration)
+                                                                        WebApplicationBuilder builder)
                                                                         where TDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
-        bool useLazyLoading = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseLazyLoading", defaultValue: "false"));
-        bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseChangeTrackingProxies", defaultValue: "false"));
+        bool useLazyLoading = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EfUseLazyLoading", defaultValue: "false"));
+        bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EfUseChangeTrackingProxies", defaultValue: "false"));
 
         var dbContextOptBuilder = new DbContextOptionsBuilder<TDbContext>();
         dbContextOptBuilder.UseLazyLoadingProxies(useLazyLoading);
         dbContextOptBuilder.UseChangeTrackingProxies(useChangeTrackingProxies);
-
         var context = c.Resolve<IHttpContextAccessor>();
         string connectionString = builder.Configuration.GetDynamicConnectionString(context?.HttpContext?.Request.Headers);
 
         string provider = "mssql";
         if (connectionString.Contains("server") || connectionString.Contains("host")) provider = "postgresql";
 
+        bool enableMigration = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EfEnableMigration", defaultValue: "false"));
         string? migrationsAssembly = null;
         if (enableMigration)
         {
@@ -57,25 +72,25 @@ public static class ComponentContextExtensions
             migrationsAssembly = assembly == null || assembly.GetName() == null ? "" : assembly.GetName().Name;
         }
 
+        int commandTimeOut = Convert.ToInt32(builder.Configuration.GetAppSettingValue("EfSqlCommandTimeOutInSecond", defaultValue: "300"));
+        int maxRetryCount = Convert.ToInt32(builder.Configuration.GetAppSettingValue("EfSqlMaxRetryOnFailureCount", defaultValue: "0"));
         switch (provider)
         {
             case "postgresql":
-                if (!enableMigration)
-                {
-                    dbContextOptBuilder.UseNpgsql(connectionString);
-                    break;
-                }
-
-                dbContextOptBuilder.UseNpgsql(connectionString, p => p.MigrationsAssembly(migrationsAssembly));
+                dbContextOptBuilder.UseNpgsql(connectionString, options =>
+                   {
+                       options.CommandTimeout(commandTimeOut);
+                       if (!string.IsNullOrWhiteSpace(migrationsAssembly)) options.MigrationsAssembly(migrationsAssembly);
+                       if (maxRetryCount > 0) options.EnableRetryOnFailure(maxRetryCount);
+                   });
                 break;
             default:
-                if (!enableMigration)
+                dbContextOptBuilder.UseSqlServer(connectionString, options =>
                 {
-                    dbContextOptBuilder.UseSqlServer(connectionString);
-                    break;
-                }
-
-                dbContextOptBuilder.UseSqlServer(connectionString, sql => sql.MigrationsAssembly(migrationsAssembly));
+                    options.CommandTimeout(commandTimeOut);
+                    if (!string.IsNullOrWhiteSpace(migrationsAssembly)) options.MigrationsAssembly(migrationsAssembly);
+                    if (maxRetryCount > 0) options.EnableRetryOnFailure(maxRetryCount);
+                });
                 break;
         }
 
