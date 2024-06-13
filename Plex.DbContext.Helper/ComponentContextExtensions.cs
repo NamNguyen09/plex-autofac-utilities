@@ -6,41 +6,41 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace Plex.DbContext.Helper;
 public static class ComponentContextExtensions
 {
-    public static TContext RegisterDbContext<TContext>(this IComponentContext c,
+    public static TDbContext RegisterDbContext<TDbContext>(this IComponentContext c,
               WebApplicationBuilder builder)
-              where TContext : Microsoft.EntityFrameworkCore.DbContext
+              where TDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
-        bool enableMigration = Convert.ToBoolean(builder.Configuration["EnableMigration"] ?? "false");
-        var optBuilder = GetDbContextOptions<TContext>(c, builder, enableMigration);
-        return (TContext)(Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration) ?? new());
+        bool enableMigration = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EnableMigration", defaultValue: "false"));
+        var optBuilder = GetDbContextOptions<TDbContext>(c, builder, enableMigration);
+        return (TDbContext)(Activator.CreateInstance(typeof(TDbContext), optBuilder.Options, enableMigration) ?? new());
     }
 
-    public static TContext RegisterDbContextWithEfCoreCache<TContext, TCacheInterceptor>(
+    public static TDbContext RegisterDbContextWithEfCoreCache<TDbContext, TCacheInterceptor>(
                   this IComponentContext c,
                   WebApplicationBuilder builder)
-                  where TContext : Microsoft.EntityFrameworkCore.DbContext
+                  where TDbContext : Microsoft.EntityFrameworkCore.DbContext
                   where TCacheInterceptor : DbCommandInterceptor
     {
-        bool enableMigration = Convert.ToBoolean(builder.Configuration["EnableMigration"] ?? "false");
+        bool enableMigration = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EnableMigration", defaultValue: "false"));
 
-        var optBuilder = GetDbContextOptions<TContext>(c, builder, enableMigration);
+        var optBuilder = GetDbContextOptions<TDbContext>(c, builder, enableMigration);
         if (c.IsRegistered(typeof(TCacheInterceptor)))
         {
             var efCoreCacheInterceptor = c.Resolve<TCacheInterceptor>();
             optBuilder.AddInterceptors(efCoreCacheInterceptor);
         }
 
-        return (TContext)(Activator.CreateInstance(typeof(TContext), optBuilder.Options, enableMigration) ?? new());
+        return (TDbContext)(Activator.CreateInstance(typeof(TDbContext), optBuilder.Options, enableMigration) ?? new());
     }
-    static DbContextOptionsBuilder<TContext> GetDbContextOptions<TContext>(IComponentContext c,
+    static DbContextOptionsBuilder<TDbContext> GetDbContextOptions<TDbContext>(IComponentContext c,
                                                                         WebApplicationBuilder builder,
                                                                         bool enableMigration)
-                                                                        where TContext : Microsoft.EntityFrameworkCore.DbContext
+                                                                        where TDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
-        bool useLazyLoading = Convert.ToBoolean(builder.Configuration["UseLazyLoading"] ?? "false");
-        bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration["UseChangeTrackingProxies"] ?? "false");
+        bool useLazyLoading = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseLazyLoading", defaultValue: "false"));
+        bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseChangeTrackingProxies", defaultValue: "false"));
 
-        var dbContextOptBuilder = new DbContextOptionsBuilder<TContext>();
+        var dbContextOptBuilder = new DbContextOptionsBuilder<TDbContext>();
         dbContextOptBuilder.UseLazyLoadingProxies(useLazyLoading);
         dbContextOptBuilder.UseChangeTrackingProxies(useChangeTrackingProxies);
 
@@ -53,7 +53,7 @@ public static class ComponentContextExtensions
         string? migrationsAssembly = null;
         if (enableMigration)
         {
-            Assembly assembly = typeof(TContext).GetTypeInfo().Assembly;
+            Assembly assembly = typeof(TDbContext).GetTypeInfo().Assembly;
             migrationsAssembly = assembly == null || assembly.GetName() == null ? "" : assembly.GetName().Name;
         }
 

@@ -1,5 +1,5 @@
-﻿using Microsoft.Extensions.Primitives;
-using System.Text;
+﻿using System.Text;
+using Microsoft.Extensions.Primitives;
 
 namespace Plex.DbContext.Helper;
 public static class ConfigurationExtensions
@@ -16,5 +16,43 @@ public static class ConfigurationExtensions
         }
 
         return $"{configuration[connectionNameBuilder.ToString()]};TrustServerCertificate=True" ?? "";
+    }
+    public static string GetAppSettingValue(this IConfiguration? configuration, string key,
+                                            string settingName = "AppSetting",
+                                            string defaultValue = "")
+    {
+        if (configuration == null) return defaultValue;
+
+        string asSecretKey = $"{settingName}-{key}";
+        if (settingName.Equals("AppSettings", StringComparison.InvariantCultureIgnoreCase))
+        {
+            asSecretKey = $"{settingName[..^1]}-{key}";
+        }
+        string evKey = $"{settingName}__{key}";
+        string settingKey = $"{settingName}:{key}";
+
+        string? value = configuration[asSecretKey];
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            value = Environment.ExpandEnvironmentVariables(value);
+            return value;
+        }
+
+        value = Environment.GetEnvironmentVariable(evKey);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            value = Environment.ExpandEnvironmentVariables(value);
+            return value;
+        }
+
+        value = configuration.GetValue<string>(settingKey) ?? defaultValue;
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            value = Environment.ExpandEnvironmentVariables(value);
+            return value;
+        }
+
+        value = configuration.GetValue<string>(key) ?? defaultValue;
+        return value;
     }
 }

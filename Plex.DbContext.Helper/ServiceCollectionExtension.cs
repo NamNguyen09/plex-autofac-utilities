@@ -5,40 +5,40 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace Plex.DbContext.Helper;
 public static class ServiceCollectionExtension
 {
-    public static WebApplicationBuilder RegisterDbContext<TContext>(this WebApplicationBuilder builder)
-                                        where TContext : Microsoft.EntityFrameworkCore.DbContext
+    public static WebApplicationBuilder RegisterDbContext<TDbContext>(this WebApplicationBuilder builder)
+                                        where TDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
-        builder.Services.AddDbContextPool<TContext>((sp, options) =>
+        builder.Services.AddDbContextPool<TDbContext>((sp, options) =>
         {
-            bool useLazyLoading = Convert.ToBoolean(builder.Configuration["UseLazyLoading"] ?? "false");
-            bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration["UseChangeTrackingProxies"] ?? "false");
+            bool useLazyLoading = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseLazyLoading", defaultValue: "false"));
+            bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseChangeTrackingProxies", defaultValue: "false"));
             options.UseLazyLoadingProxies(useLazyLoading);
             options.UseChangeTrackingProxies(useChangeTrackingProxies);
-            options.UseDbProvider<TContext>(sp, builder);
+            options.UseDbProvider<TDbContext>(sp, builder);
         });
 
         return builder;
     }
-    public static WebApplicationBuilder RegisterDbContextWithCache<TContext, TCacheInterceptor>(
+    public static WebApplicationBuilder RegisterDbContextWithCache<TDbContext, TCacheInterceptor>(
                                                       this WebApplicationBuilder builder)
-                                                      where TContext : Microsoft.EntityFrameworkCore.DbContext
+                                                      where TDbContext : Microsoft.EntityFrameworkCore.DbContext
                                                       where TCacheInterceptor : DbCommandInterceptor
     {
-        builder.Services.AddDbContextPool<TContext>((sp, options) =>
+        builder.Services.AddDbContextPool<TDbContext>((sp, options) =>
         {
             var efCoreCacheInterceptor = sp.GetService<TCacheInterceptor>();
             if (efCoreCacheInterceptor != null) options.AddInterceptors(efCoreCacheInterceptor);
-            bool useLazyLoading = Convert.ToBoolean(builder.Configuration["UseLazyLoading"] ?? "false");
-            bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration["UseChangeTrackingProxies"] ?? "false");
+            bool useLazyLoading = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseLazyLoading", defaultValue: "false"));
+            bool useChangeTrackingProxies = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("UseChangeTrackingProxies", defaultValue: "false"));
             options.UseLazyLoadingProxies(useLazyLoading);
             options.UseChangeTrackingProxies(useChangeTrackingProxies);
-            options.UseDbProvider<TContext>(sp, builder);
+            options.UseDbProvider<TDbContext>(sp, builder);
         });
 
         return builder;
     }
-    static DbContextOptionsBuilder UseDbProvider<TContext>(this DbContextOptionsBuilder options,
-        IServiceProvider sp, WebApplicationBuilder builder) where TContext : Microsoft.EntityFrameworkCore.DbContext
+    static DbContextOptionsBuilder UseDbProvider<TDbContext>(this DbContextOptionsBuilder options,
+        IServiceProvider sp, WebApplicationBuilder builder) where TDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
         var context = sp.GetService<IHttpContextAccessor>();
         string connectionString = builder.Configuration.GetDynamicConnectionString(context?.HttpContext?.Request.Headers);
@@ -46,11 +46,11 @@ public static class ServiceCollectionExtension
         string provider = "mssql";
         if (connectionString.Contains("server") || connectionString.Contains("host")) provider = "postgresql";
 
-        bool enableMigration = Convert.ToBoolean(builder.Configuration["EnableMigration"] ?? "false");
+        bool enableMigration = Convert.ToBoolean(builder.Configuration.GetAppSettingValue("EnableMigration", defaultValue: "false"));
         string? migrationsAssembly = null;
         if (enableMigration)
         {
-            Assembly assembly = typeof(TContext).GetTypeInfo().Assembly;
+            Assembly assembly = typeof(TDbContext).GetTypeInfo().Assembly;
             migrationsAssembly = assembly == null || assembly.GetName() == null ? "" : assembly.GetName().Name;
         }
 
