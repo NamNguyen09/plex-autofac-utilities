@@ -1,41 +1,45 @@
 ﻿using System.Data.Common;
-using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Primitives;
 using static Plex.Extensions.DbContext.Constants;
 
 namespace Plex.Extensions.DbContext;
 public static class ConfigurationExtensions
-{	
-	public static string GetDynamicConnectionString(this IConfiguration? configuration,
-													HttpRequest? request)
+{
+	public static (string DbProvider, string ConnectionString) GetDynamicConnectionString(this IConfiguration? configuration,
+																HttpRequest? request,
+																ILogger? logger = null,
+																Dictionary<string, string>? dbProviderMappings = null)
 	{
-		if (configuration == null) return configuration.GetAppSettingValue(ConnectionString);
-		StringBuilder connectionNameBuilder = new StringBuilder().Append(configuration[ConnectionStringKey] ?? ConnectionString);
-		string connectionString = $"{configuration.GetAppSettingValue(connectionNameBuilder.ToString())};TrustServerCertificate=True";
-		DbConnectionStringBuilder dbConnectionStringBuilder = new()
-		{
-			ConnectionString = connectionString
-		};
+		if (configuration == null) return ("", "");
+		string connectionStrKey = configuration[ConnectionStringKey] ?? ConnectionString;
+		string connectionString = configuration.GetConfigValue(connectionStrKey);
+
+		string? currentDbName = connectionString.GetDatabaseName(logger);
 
 		string? dbName = request.GetHeaderValue(DbNameHeaderKey);
-		if (!string.IsNullOrWhiteSpace(dbName)
-			&& dbConnectionStringBuilder.ContainsKey(Database))
+		if (!string.IsNullOrWhiteSpace(dbName))
 		{
-			dbConnectionStringBuilder[Database] = dbName.ToString();
-		}
+			connectionString = connectionString.Replace("%db%", dbName.ToString());
+			connectionString = !string.IsNullOrWhiteSpace(currentDbName) ?
+								connectionString.Replace(currentDbName, dbName.ToString()) : connectionString;
 
+			currentDbName = dbName;
+		}
 		string? dbServerName = request.GetHeaderValue(DbServerHeaderKey);
-		if (!string.IsNullOrWhiteSpace(dbServerName)
-			&& dbConnectionStringBuilder.ContainsKey(Server))
+		if (!string.IsNullOrWhiteSpace(dbServerName))
 		{
-			dbConnectionStringBuilder[Server] = dbServerName.ToString();
+			connectionString = connectionString.Replace("%server%", dbServerName.ToString());
 		}
 
-		return dbConnectionStringBuilder.ConnectionString;
+		string dbProvider = string.IsNullOrWhiteSpace(currentDbName) || dbProviderMappings == null ? MSSQL : dbProviderMappings[currentDbName];
+
+		return (dbProvider, connectionString);
 	}
-	public static string GetAppSettingValue(this IConfiguration? configuration, string key,
-											string settingName = "AppSetting",
-											string defaultValue = "")
+	public static string GetConfigValue(this IConfiguration? configuration,
+										string key,
+										string settingName = "AppSetting",
+										string defaultValue = "")
 	{
 		if (configuration == null) return defaultValue;
 
@@ -79,6 +83,55 @@ public static class ConfigurationExtensions
 		if (request.Headers.TryGetValue(key, out StringValues value))
 		{
 			return value;
+		}
+
+		return null;
+	}
+	static string? GetDatabaseName(this string connectionString,
+								   ILogger? logger = null)
+	{
+		// Attempt to parse as key-value pair connection string
+		try
+		{
+			DbConnectionStringBuilder dbConnectionStringBuilder = new()
+			{
+				ConnectionString = connectionString
+			};
+
+			if (dbConnectionStringBuilder.ContainsKey("Database"))
+			{
+				return dbConnectionStringBuilder["Database"].ToString();
+			}
+			if (dbConnectionStringBuilder.ContainsKey("Initial Catalog")) // SQL Server alternative key
+			{
+				return dbConnectionStringBuilder["Initial Catalog"].ToString();
+			}
+		}
+		catch (Exception ex)
+		{
+			// Handle exception if it's not a standard key-value pair connection string
+			logger?.LogError(ex.Message, ex);
+		}
+
+		// Handle MongoDB connection string separately if it's not parsed by DbConnectionStringBuilder
+		if (connectionString.StartsWith("mongodb://", StringComparison.OrdinalIgnoreCase)
+			|| connectionString.StartsWith("mongodb+srv://", StringComparison.OrdinalIgnoreCase))
+		{
+			return connectionString.GetMongoDbname();
+		}
+
+		return null;
+	}
+
+	static string? GetMongoDbname(this string connectionString)
+	{
+		// Regular expression to match the database name in the connection string
+		string pattern = @"mongodb(?:\+srv)?:\/\/[^\/]+\/([^\/?]+)";
+		Match match = Regex.Match(connectionString, pattern);
+
+		if (match.Success && match.Groups.Count > 1)
+		{
+			return match.Groups[1].Value;
 		}
 
 		return null;

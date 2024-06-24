@@ -2,7 +2,7 @@
 internal static class Constants
 {
 	internal const string CommandTimeOut = "Command Timeout";
-	internal const string DefaultCommandTimeOutValue = "300";
+	internal const string TrustServerCertificate = "TrustServerCertificate";
 	internal const string Postgresql = "postgresql";
 	internal const string MSSQL = "mssql";
 	internal const string Host = "host";

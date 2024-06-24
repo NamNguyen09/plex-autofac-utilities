@@ -7,131 +7,130 @@ using DbContextBase = Microsoft.EntityFrameworkCore.DbContext;
 namespace Plex.Extensions.DbContext;
 public static class ServiceCollectionExtensions
 {
-	public static IServiceCollection RegisterDbContextPool<TContext>(this IServiceCollection services, 
-										string? connectionString = null)
+	public static IServiceCollection RegisterDbContextPool<TContext>(this IServiceCollection services)
 										where TContext : DbContextBase
 	{
+		services.AddSingleton<PlexDbOptions>();
 		services.AddDbContextPool<TContext>((sp, options) =>
 		{
-			options.AppendOptions<TContext>(sp, connectionString);
+			var plexDbOptions = sp.GetRequiredService<PlexDbOptions>();
+			options.AppendOptions<TContext>(plexDbOptions);
 		});
 
 		return services;
 	}
-	public static IServiceCollection RegisterDbContextPool<TContext, TCacheInterceptor>(this IServiceCollection services,
-													string? connectionString = null)
+	public static IServiceCollection RegisterDbContextPool<TContext, TCacheInterceptor>(this IServiceCollection services)
 													where TContext : DbContextBase
 													where TCacheInterceptor : DbCommandInterceptor
 	{
+		services.AddSingleton<PlexDbOptions>();
 		services.AddDbContextPool<TContext>((sp, options) =>
 		{
 			var efCoreCacheInterceptor = sp.GetService<TCacheInterceptor>();
 			if (efCoreCacheInterceptor != null) options.AddInterceptors(efCoreCacheInterceptor);
-			options.AppendOptions<TContext>(sp, connectionString);
+			var plexDbOptions = sp.GetRequiredService<PlexDbOptions>();
+			options.AppendOptions<TContext>(plexDbOptions);
 		});
 
 		return services;
 	}
-	public static IServiceCollection RegisterDbContext<TContext>(this IServiceCollection services,
-									  string? connectionString = null)
+	public static IServiceCollection RegisterDbContext<TContext>(this IServiceCollection services)
 									  where TContext : DbContextBase
 	{
+		services.AddScoped<PlexDbOptions>();
 		services.AddDbContext<TContext>((sp, options) =>
 		{
-			options.AppendOptions<TContext>(sp, connectionString);
+			var plexDbOptions = sp.GetRequiredService<PlexDbOptions>();
+			options.AppendOptions<TContext>(plexDbOptions);
 		});
 
 		return services;
 	}
-	public static IServiceCollection RegisterDbContext<TContext, TCacheInterceptor>(this IServiceCollection services,
-													  string? connectionString = null)
+	public static IServiceCollection RegisterDbContext<TContext, TCacheInterceptor>(this IServiceCollection services)
 													  where TContext : DbContextBase
 													  where TCacheInterceptor : DbCommandInterceptor
 	{
+		services.AddScoped<PlexDbOptions>();
 		services.AddDbContext<TContext>((sp, options) =>
 		{
 			var efCoreCacheInterceptor = sp.GetService<TCacheInterceptor>();
 			if (efCoreCacheInterceptor != null) options.AddInterceptors(efCoreCacheInterceptor);
-			options.AppendOptions<TContext>(sp, connectionString);
+			var plexDbOptions = sp.GetRequiredService<PlexDbOptions>();
+			options.AppendOptions<TContext>(plexDbOptions);
 		});
 
 		return services;
 	}
-	public static IServiceCollection RegisterSqlConnectionFactory<ISqlConnection, TSqlConnection>(this IServiceCollection services,
-																   string? connectionString = null)
+	public static IServiceCollection RegisterSqlConnectionFactory<ISqlConnection, TSqlConnection>(this IServiceCollection services)
 																   where TSqlConnection : class
 																   where ISqlConnection : class
 	{
+		services.AddScoped<PlexDbOptions>();
 		services.AddScoped(sp =>
 		{
-			var context = sp.GetService<IHttpContextAccessor>();
-			IConfiguration? configuration = sp.GetService<IConfiguration>();
-			connectionString ??= configuration.GetDynamicConnectionString(context?.HttpContext?.Request);
+			var plexDbOptions = sp.GetRequiredService<PlexDbOptions>();
+			string connectionString = plexDbOptions.ConnectionString;
 			if (!connectionString.Contains(CommandTimeOut, StringComparison.InvariantCultureIgnoreCase))
 			{
-				int commandTimeOut = Convert.ToInt32(configuration.GetAppSettingValue(AppSettingKeys.CommandTimeOut, defaultValue: DefaultCommandTimeOutValue));
-				connectionString += $";{CommandTimeOut} = {commandTimeOut}";
+				connectionString += $";{CommandTimeOut} = {plexDbOptions.CommandTimeOut}";
 			}
+			if (!connectionString.Contains(TrustServerCertificate, StringComparison.InvariantCultureIgnoreCase))
+			{
+				connectionString += $";{TrustServerCertificate}=True";
+			}
+
 			return (ISqlConnection)(Activator.CreateInstance(typeof(TSqlConnection), connectionString) ?? new());
 		});
 
 		return services;
 	}
 	static DbContextOptionsBuilder AppendOptions<TContext>(this DbContextOptionsBuilder options,
-										IServiceProvider sp, string? connectionString = null)
-										where TContext : DbContextBase
+														PlexDbOptions plexDbOptions)
+														where TContext : DbContextBase
 	{
-		var configuration = sp.GetService<IConfiguration>();
-		bool useLazyLoading = Convert.ToBoolean(configuration.GetAppSettingValue(AppSettingKeys.UseLazyLoading, defaultValue: "false"));
-		bool useChangeTrackingProxies = Convert.ToBoolean(configuration.GetAppSettingValue(AppSettingKeys.UseChangeTrackingProxies, defaultValue: "false"));
-		options.UseLazyLoadingProxies(useLazyLoading);
-		options.UseChangeTrackingProxies(useChangeTrackingProxies);
-		bool useQueryTrackingBehavior = Convert.ToBoolean(configuration.GetAppSettingValue(AppSettingKeys.UseQueryTrackingBehavior, defaultValue: "true"));
-		if (!useQueryTrackingBehavior) options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+		options.UseLazyLoadingProxies(plexDbOptions.UseLazyLoading);
+		options.UseChangeTrackingProxies(plexDbOptions.UseChangeTrackingProxies);
+		if (!plexDbOptions.UseQueryTrackingBehavior) options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
 
-		var context = sp.GetService<IHttpContextAccessor>();
-		options.UseDbProvider<TContext>(context, configuration, connectionString);
+		options.UseDbProvider<TContext>(plexDbOptions);
 
 		return options;
 	}
 
 	static DbContextOptionsBuilder UseDbProvider<TContext>(this DbContextOptionsBuilder dbContextOptBuilder,
-															IHttpContextAccessor? context,
-															IConfiguration? configuration,
-															string? connectionString = null)
+															PlexDbOptions plexDbOptions)
 															where TContext : DbContextBase
 	{
-		connectionString ??= configuration.GetDynamicConnectionString(context?.HttpContext?.Request);
-
-		string provider = MSSQL;
-		if (connectionString.Contains(Server) || connectionString.Contains(Constants.Host)) provider = Postgresql;
-
-		bool enableMigration = Convert.ToBoolean(configuration.GetAppSettingValue(AppSettingKeys.EnableMigration, defaultValue: "false"));
+		string provider = plexDbOptions.DbProvider;
 		string? migrationsAssembly = null;
-		if (enableMigration)
+		if (plexDbOptions.EnableMigration)
 		{
 			Assembly assembly = typeof(TContext).GetTypeInfo().Assembly;
 			migrationsAssembly = assembly == null || assembly.GetName() == null ? "" : assembly.GetName().Name;
 		}
 
-		int commandTimeOut = Convert.ToInt32(configuration.GetAppSettingValue(AppSettingKeys.CommandTimeOut, defaultValue: DefaultCommandTimeOutValue));
-		int maxRetryCount = Convert.ToInt32(configuration.GetAppSettingValue(AppSettingKeys.SqlMaxRetryOnFailureCount, defaultValue: "0"));
+		string connectionString = plexDbOptions.ConnectionString;
 		switch (provider)
 		{
 			case Postgresql:
 				dbContextOptBuilder.UseNpgsql(connectionString, options =>
 				   {
-					   options.CommandTimeout(commandTimeOut);
+					   options.CommandTimeout(plexDbOptions.CommandTimeOut);
 					   if (!string.IsNullOrWhiteSpace(migrationsAssembly)) options.MigrationsAssembly(migrationsAssembly);
-					   if (maxRetryCount > 0) options.EnableRetryOnFailure(maxRetryCount);
+					   if (plexDbOptions.MaxRetryCount > 0) options.EnableRetryOnFailure(plexDbOptions.MaxRetryCount);
 				   });
 				break;
 			default:
+				if (!connectionString.Contains(TrustServerCertificate, StringComparison.InvariantCultureIgnoreCase))
+				{
+					connectionString += $";{TrustServerCertificate}=True";
+				}
+
 				dbContextOptBuilder.UseSqlServer(connectionString, options =>
 				{
-					options.CommandTimeout(commandTimeOut);
+					options.CommandTimeout(plexDbOptions.CommandTimeOut);
 					if (!string.IsNullOrWhiteSpace(migrationsAssembly)) options.MigrationsAssembly(migrationsAssembly);
-					if (maxRetryCount > 0) options.EnableRetryOnFailure(maxRetryCount);
+					if (plexDbOptions.MaxRetryCount > 0) options.EnableRetryOnFailure(plexDbOptions.MaxRetryCount);
 				});
 				break;
 		}
