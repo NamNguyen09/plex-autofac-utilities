@@ -1,59 +1,86 @@
-﻿using System.Text;
+﻿using System.Data.Common;
+using System.Text;
 using Microsoft.Extensions.Primitives;
+using static Plex.Extensions.DbContext.Constants;
 
 namespace Plex.Extensions.DbContext;
 public static class ConfigurationExtensions
-{
-    const string DbNameKey = "cx-db";
-    public static string GetDynamicConnectionString(this IConfiguration? configuration,
-                                                   IDictionary<string, StringValues>? httpRequestHeaders)
-    {
-        if (configuration == null) return configuration.GetAppSettingValue("ConnectionString");
-        StringBuilder connectionNameBuilder = new StringBuilder().Append(configuration["ConnectionStringKey"] ?? "ConnectionString");
-        if (httpRequestHeaders != null && httpRequestHeaders.TryGetValue(DbNameKey, out StringValues value))
-        {
-            string? appName = value;
-            if (!string.IsNullOrWhiteSpace(appName)) connectionNameBuilder.Append($"-{appName.ToLower()}");
-        }
+{	
+	public static string GetDynamicConnectionString(this IConfiguration? configuration,
+													HttpRequest? request)
+	{
+		if (configuration == null) return configuration.GetAppSettingValue(ConnectionString);
+		StringBuilder connectionNameBuilder = new StringBuilder().Append(configuration[ConnectionStringKey] ?? ConnectionString);
+		string connectionString = $"{configuration.GetAppSettingValue(connectionNameBuilder.ToString())};TrustServerCertificate=True";
+		DbConnectionStringBuilder dbConnectionStringBuilder = new()
+		{
+			ConnectionString = connectionString
+		};
 
-        return $"{configuration.GetAppSettingValue(connectionNameBuilder.ToString())};TrustServerCertificate=True" ?? "";
-    }
-    public static string GetAppSettingValue(this IConfiguration? configuration, string key,
-                                            string settingName = "AppSetting",
-                                            string defaultValue = "")
-    {
-        if (configuration == null) return defaultValue;
+		string? dbName = request.GetHeaderValue(DbNameHeaderKey);
+		if (!string.IsNullOrWhiteSpace(dbName)
+			&& dbConnectionStringBuilder.ContainsKey(Database))
+		{
+			dbConnectionStringBuilder[Database] = dbName.ToString();
+		}
 
-        string asSecretKey = $"{settingName}-{key}";
-        if (settingName.Equals("AppSettings", StringComparison.InvariantCultureIgnoreCase))
-        {
-            asSecretKey = $"{settingName[..^1]}-{key}";
-        }
-        string evKey = $"{settingName}__{key}";
-        string settingKey = $"{settingName}:{key}";
+		string? dbServerName = request.GetHeaderValue(DbServerHeaderKey);
+		if (!string.IsNullOrWhiteSpace(dbServerName)
+			&& dbConnectionStringBuilder.ContainsKey(Server))
+		{
+			dbConnectionStringBuilder[Server] = dbServerName.ToString();
+		}
 
-        string? value = configuration[asSecretKey];
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            value = Environment.ExpandEnvironmentVariables(value);
-            return value;
-        }
+		return dbConnectionStringBuilder.ConnectionString;
+	}
+	public static string GetAppSettingValue(this IConfiguration? configuration, string key,
+											string settingName = "AppSetting",
+											string defaultValue = "")
+	{
+		if (configuration == null) return defaultValue;
 
-        value = Environment.GetEnvironmentVariable(evKey);
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            value = Environment.ExpandEnvironmentVariables(value);
-            return value;
-        }
+		string asSecretKey = $"{settingName}-{key}";
+		if (settingName.Equals("AppSettings", StringComparison.InvariantCultureIgnoreCase))
+		{
+			asSecretKey = $"{settingName[..^1]}-{key}";
+		}
+		string evKey = $"{settingName}__{key}";
+		string settingKey = $"{settingName}:{key}";
 
-        value = configuration.GetValue<string>(settingKey);
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            value = Environment.ExpandEnvironmentVariables(value);
-            return value;
-        }
+		string? value = configuration[asSecretKey];
+		if (!string.IsNullOrWhiteSpace(value))
+		{
+			value = Environment.ExpandEnvironmentVariables(value);
+			return value;
+		}
 
-        value = configuration.GetValue<string>(key) ?? defaultValue;
-        return value;
-    }
+		value = Environment.GetEnvironmentVariable(evKey);
+		if (!string.IsNullOrWhiteSpace(value))
+		{
+			value = Environment.ExpandEnvironmentVariables(value);
+			return value;
+		}
+
+		value = configuration.GetValue<string>(settingKey);
+		if (!string.IsNullOrWhiteSpace(value))
+		{
+			value = Environment.ExpandEnvironmentVariables(value);
+			return value;
+		}
+
+		value = configuration.GetValue<string>(key) ?? defaultValue;
+		return value;
+	}
+
+	static string? GetHeaderValue(this HttpRequest? request, string key)
+	{
+		if (request == null || request.Headers == null) return null;
+
+		if (request.Headers.TryGetValue(key, out StringValues value))
+		{
+			return value;
+		}
+
+		return null;
+	}
 }
