@@ -4,13 +4,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>8.0.10</Version>
+    <Version>8.0.11</Version>
     <Authors>Tom Lee</Authors>
     <PackageProjectUrl>https://github.com/NamNguyen09/plex-autofac-utilities</PackageProjectUrl>
     <RepositoryUrl>https://github.com/NamNguyen09/plex-autofac-utilities</RepositoryUrl>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Add AddJsonConfigurationFilesAsync method</PackageReleaseNotes>
+    <PackageReleaseNotes>Correct default value when getting config value</PackageReleaseNotes>
 	<NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
 	<!-- Let's generate our own assembly info -->
 	<GenerateAssemblyInfo>false</GenerateAssemblyInfo>

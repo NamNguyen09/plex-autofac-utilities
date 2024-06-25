@@ -79,7 +79,7 @@ public static class ConfigurationExtensions
 			return value;
 		}
 
-		value = configuration.GetValue<string>(settingKey) ?? "";
+		value = configuration.GetValue<string>(settingKey);
 		if (!string.IsNullOrWhiteSpace(value))
 		{
 			value = value.ToExpandEnvironmentVariable();
@@ -87,7 +87,7 @@ public static class ConfigurationExtensions
 			return value;
 		}
 
-		value = configuration.GetValue<string>(key) ?? "";
+		value = configuration.GetValue<string>(key) ?? defaultValue;
 		_keyValuePairs.TryAdd(key, value);
 		return value;
 	}
