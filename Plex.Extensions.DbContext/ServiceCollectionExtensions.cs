@@ -10,10 +10,10 @@ public static class ServiceCollectionExtensions
 	public static IServiceCollection RegisterDbContextPool<TContext>(this IServiceCollection services)
 										where TContext : DbContextBase
 	{
-		services.AddSingleton<PlexDbOptions>();
+		services.AddKeyedSingleton<PlexDbOptions>("dbcontextpool");
 		services.AddDbContextPool<TContext>((sp, options) =>
 		{
-			var plexDbOptions = sp.GetRequiredService<PlexDbOptions>();
+			var plexDbOptions = sp.GetRequiredKeyedService<PlexDbOptions>("dbcontextpool");
 			options.AppendOptions<TContext>(plexDbOptions);
 		});
 
@@ -23,12 +23,12 @@ public static class ServiceCollectionExtensions
 													where TContext : DbContextBase
 													where TCacheInterceptor : DbCommandInterceptor
 	{
-		services.AddSingleton<PlexDbOptions>();
+		services.AddKeyedSingleton<PlexDbOptions>("dbcontextpoolwithcache");
 		services.AddDbContextPool<TContext>((sp, options) =>
 		{
 			var efCoreCacheInterceptor = sp.GetService<TCacheInterceptor>();
 			if (efCoreCacheInterceptor != null) options.AddInterceptors(efCoreCacheInterceptor);
-			var plexDbOptions = sp.GetRequiredService<PlexDbOptions>();
+			var plexDbOptions = sp.GetRequiredKeyedService<PlexDbOptions>("dbcontextpoolwithcache");
 			options.AppendOptions<TContext>(plexDbOptions);
 		});
 
@@ -37,10 +37,10 @@ public static class ServiceCollectionExtensions
 	public static IServiceCollection RegisterDbContext<TContext>(this IServiceCollection services)
 									  where TContext : DbContextBase
 	{
-		services.AddScoped<PlexDbOptions>();
+		services.AddKeyedScoped<PlexDbOptions>("dbcontext");
 		services.AddDbContext<TContext>((sp, options) =>
 		{
-			var plexDbOptions = sp.GetRequiredService<PlexDbOptions>();
+			var plexDbOptions = sp.GetRequiredKeyedService<PlexDbOptions>("dbcontext");
 			options.AppendOptions<TContext>(plexDbOptions);
 		});
 
@@ -50,12 +50,12 @@ public static class ServiceCollectionExtensions
 													  where TContext : DbContextBase
 													  where TCacheInterceptor : DbCommandInterceptor
 	{
-		services.AddScoped<PlexDbOptions>();
+		services.AddKeyedScoped<PlexDbOptions>("dbcontextwithcache");
 		services.AddDbContext<TContext>((sp, options) =>
 		{
 			var efCoreCacheInterceptor = sp.GetService<TCacheInterceptor>();
 			if (efCoreCacheInterceptor != null) options.AddInterceptors(efCoreCacheInterceptor);
-			var plexDbOptions = sp.GetRequiredService<PlexDbOptions>();
+			var plexDbOptions = sp.GetRequiredKeyedService<PlexDbOptions>("dbcontextwithcache");
 			options.AppendOptions<TContext>(plexDbOptions);
 		});
 
@@ -65,10 +65,10 @@ public static class ServiceCollectionExtensions
 																   where TSqlConnection : class
 																   where ISqlConnection : class
 	{
-		services.AddScoped<PlexDbOptions>();
+		services.AddKeyedScoped<PlexDbOptions>("sqlconnectionfactory");
 		services.AddScoped(sp =>
 		{
-			var plexDbOptions = sp.GetRequiredService<PlexDbOptions>();
+			var plexDbOptions = sp.GetRequiredKeyedService<PlexDbOptions>("sqlconnectionfactory");
 			string connectionString = plexDbOptions.ConnectionString;
 			if (!connectionString.Contains(CommandTimeOut, StringComparison.InvariantCultureIgnoreCase))
 			{

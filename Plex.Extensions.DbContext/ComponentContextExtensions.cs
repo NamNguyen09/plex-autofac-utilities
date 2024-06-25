@@ -11,7 +11,7 @@ public static class ComponentContextExtensions
 	public static TContext RegisterDbContext<TContext>(this IComponentContext c)
 													   where TContext : DbContextBase
 	{
-		PlexDbOptions plexDbOptions = c.Resolve<PlexDbOptions>();
+		PlexDbOptions plexDbOptions = c.ResolveKeyed<PlexDbOptions>("dbcontext");
 		var optBuilder = GetDbContextOptions<TContext>(c, plexDbOptions);
 		return (TContext)(Activator.CreateInstance(typeof(TContext), optBuilder.Options) ?? new());
 	}
@@ -20,7 +20,7 @@ public static class ComponentContextExtensions
 															  where TContext : DbContextBase
 															  where TCacheInterceptor : DbCommandInterceptor
 	{
-		PlexDbOptions plexDbOptions = c.Resolve<PlexDbOptions>();
+		PlexDbOptions plexDbOptions = c.ResolveKeyed<PlexDbOptions>("dbcontextwithcache");
 		var optBuilder = GetDbContextOptions<TContext>(c, plexDbOptions);
 		if (c.IsRegistered(typeof(TCacheInterceptor)))
 		{
@@ -35,10 +35,12 @@ public static class ComponentContextExtensions
 																	where TSqlConnection : class
 																	where ISqlConnection : class
 	{
-		containerBuilder.RegisterType<PlexDbOptions>().AsSelf().InstancePerLifetimeScope();
+		containerBuilder.RegisterType<PlexDbOptions>()
+						.Keyed<PlexDbOptions>("sqlconnectionfactory")
+						.AsSelf().InstancePerLifetimeScope();
 		containerBuilder.Register(c =>
 		{
-			PlexDbOptions plexDbOptions = c.Resolve<PlexDbOptions>();
+			PlexDbOptions plexDbOptions = c.ResolveKeyed<PlexDbOptions>("sqlconnectionfactory");
 			string connectionString = plexDbOptions.ConnectionString;
 			if (!connectionString.Contains(CommandTimeOut, StringComparison.InvariantCultureIgnoreCase))
 			{
