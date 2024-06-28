@@ -4,13 +4,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>8.0.12</Version>
+    <Version>8.0.14</Version>
     <Authors>Tom Lee</Authors>
     <PackageProjectUrl>https://github.com/NamNguyen09/plex-autofac-utilities</PackageProjectUrl>
     <RepositoryUrl>https://github.com/NamNguyen09/plex-autofac-utilities</RepositoryUrl>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Uninstall Azure.Identity and Azure.Extensions.AspNetCore.Configuration.Secrets</PackageReleaseNotes>
+    <PackageReleaseNotes>Check null for dbProviderMappings when getting connectionstring</PackageReleaseNotes>
 	<NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
 	<!-- Let's generate our own assembly info -->
 	<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
